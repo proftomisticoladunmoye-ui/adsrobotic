@@ -1,0 +1,136 @@
+# Render blueprint (Infrastructure-as-Code) for AdsRobotic.
+# Defines the runtime stack: the Next.js web app, the background worker
+# (Budget Guardian sweep), a Render Key Value (Redis) instance, and a shared
+# secrets group. Postgres is external — use Neon (or any managed Postgres) and
+# paste DATABASE_URL / DIRECT_URL into the secrets group below.
+#
+# Deploy: push this file, then Render → New → Blueprint → pick this repo.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# pnpm is enabled via corepack in each build command; Node is pinned with
+# NODE_VERSION. Background workers and preDeployCommand require a paid instance.
+
+services:
+  # ---------------- Web app (Next.js) ----------------
+  - type: web
+    name: adsrobotic-web
+    runtime: node
+    region: ohio # match your Neon region for lowest latency
+    plan: starter # `free` works for staging (cold starts); starter for prod
+    branch: main
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @adsrobotic/db exec prisma generate &&
+      pnpm --filter @adsrobotic/web build
+    startCommand: pnpm --filter @adsrobotic/web start
+    # Applies migrations to the database before each deploy goes live (uses
+    # DIRECT_URL). Requires a paid instance; on `free`, drop this and run
+    # `pnpm db:migrate` manually against the database instead.
+    preDeployCommand: pnpm --filter @adsrobotic/db exec prisma migrate deploy
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Baked at build time — set to the live URL (Render external URL or custom
+      # domain) BEFORE the first build. Also the base for OAuth redirect URIs.
+      - key: NEXT_PUBLIC_APP_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          name: adsrobotic-redis
+          type: keyvalue
+          property: connectionString
+      - fromGroup: adsrobotic-secrets
+
+  # ---------------- Background worker (Budget Guardian) ----------------
+  - type: worker
+    name: adsrobotic-worker
+    runtime: node
+    region: ohio
+    plan: starter # background workers require a paid instance
+    branch: main
+    buildCommand: >-
+      corepack enable &&
+      pnpm install --frozen-lockfile &&
+      pnpm --filter @adsrobotic/db exec prisma generate
+    # The worker runs its TypeScript directly via tsx — no build step needed.
+    startCommand: pnpm --filter @adsrobotic/worker start
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: GUARDIAN_INTERVAL_MS
+        value: "300000"
+      - key: REDIS_URL
+        fromService:
+          name: adsrobotic-redis
+          type: keyvalue
+          property: connectionString
+      - fromGroup: adsrobotic-secrets
+
+  # ---------------- Redis (Render Key Value) ----------------
+  - type: keyvalue
+    name: adsrobotic-redis
+    region: ohio
+    plan: starter # `free` KV is ephemeral; starter persists
+    maxmemoryPolicy: noeviction
+    ipAllowList: [] # Render internal network only
+
+# ---------------- Shared secrets (set once in the Render dashboard) ----------------
+envVarGroups:
+  - name: adsrobotic-secrets
+    envVars:
+      # Database — Neon (or any managed Postgres). Paste the POOLED url here and
+      # the DIRECT url below (migrations use DIRECT_URL).
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # Session signing — Render generates a long random value.
+      - key: SESSION_SECRET
+        generateValue: true
+      # Channel-token encryption — MUST be base64 of exactly 32 bytes.
+      # Generate: openssl rand -base64 32
+      - key: TOKEN_ENCRYPTION_KEY
+        sync: false
+      # AI orchestration — `local` needs no key; `claude` / `openrouter` do.
+      - key: AI_PROVIDER
+        value: local
+      - key: AI_API_KEY
+        sync: false
+      # Creative image generation — `local` (SVG poster) needs no key.
+      - key: IMAGE_PROVIDER
+        value: local
+      - key: IMAGE_API_KEY
+        sync: false
+      # Advertising channels (optional until connected). OAuth redirect URIs are
+      # ${NEXT_PUBLIC_APP_URL}/api/v1/channels/<channel>/callback
+      - key: META_ADS_APP_ID
+        sync: false
+      - key: META_ADS_APP_SECRET
+        sync: false
+      - key: GOOGLE_ADS_CLIENT_ID
+        sync: false
+      - key: GOOGLE_ADS_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_ADS_DEVELOPER_TOKEN
+        sync: false
+      - key: TIKTOK_APP_ID
+        sync: false
+      - key: TIKTOK_APP_SECRET
+        sync: false
+      # Object storage for large creative assets (optional; S3-compatible e.g. R2)
+      - key: OBJECT_STORAGE_ENDPOINT
+        sync: false
+      - key: OBJECT_STORAGE_BUCKET
+        sync: false
+      - key: OBJECT_STORAGE_KEY
+        sync: false
+      - key: OBJECT_STORAGE_SECRET
+        sync: false
