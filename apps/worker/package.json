@@ -1,0 +1,26 @@
+{
+  "name": "@adsrobotic/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "tsx src/index.ts",
+    "guardian:once": "tsx src/index.ts --once",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@adsrobotic/channel-core": "workspace:*",
+    "@adsrobotic/config": "workspace:*",
+    "@adsrobotic/core": "workspace:*",
+    "@adsrobotic/db": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5"
+  }
+}

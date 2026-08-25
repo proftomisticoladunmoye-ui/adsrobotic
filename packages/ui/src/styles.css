@@ -1,0 +1,26 @@
+/*
+ * AdsRobotic design-system base variables (Spec §9, §10).
+ * Mirrors packages/config/src/tokens.ts — the TS tokens remain the source of
+ * truth; this file exposes the same --ar-* contract to plain CSS consumers.
+ */
+:root {
+  --ar-blue: #0a2463;
+  --ar-blue-bright: #146cff;
+  --ar-blue-dark: #071a49;
+  --ar-blue-light: #eaf1ff;
+  --ar-cyan: #00c2d9;
+  --ar-cyan-dark: #0092a6;
+  --ar-cyan-light: #e3fafd;
+  --ar-orange: #ff7a00;
+  --ar-orange-dark: #cc6200;
+  --ar-orange-light: #fff1e3;
+  --ar-white: #ffffff;
+  --ar-surface: #ffffff;
+  --ar-background: #f7f9fc;
+  --ar-text: #102a43;
+  --ar-muted: #627d98;
+  --ar-border: #d9e2ec;
+  --ar-success: #16a34a;
+  --ar-warning: #f59e0b;
+  --ar-critical: #dc2626;
+}

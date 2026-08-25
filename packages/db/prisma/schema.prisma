@@ -1,0 +1,1053 @@
+// AdsRobotic — Prisma schema (MVP V1 foundation).
+// Aligned with the master spec §18–§21 (technical architecture, multi-tenant
+// model, core entities, trust & security).
+//
+// Conventions:
+// - Primary keys: uuid v4.
+// - Tenancy: Organization is the top tenant; Business is the working unit that
+//   owns campaigns, creatives, leads, budget rules, memory, etc. Business-scoped
+//   records carry `businessId`; agency organisations own multiple client
+//   Businesses (Spec §19). Postgres row-level security is layered on in a later
+//   migration; application code always scopes by organizationId / businessId.
+// - Actor references (createdById, decidedById, connectedById, ownerUserId) are
+//   stored as indexed scalar strings rather than enforced FKs to keep the User
+//   relation graph tractable; the audit log is the system of record for "who".
+// - Money: Decimal(14,2) with an explicit currency column. Estimated vs actual
+//   metrics are always distinguished via MetricSource (Spec §28).
+// - Soft deletion via `deletedAt` on Business and Campaign.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================================
+// Enums
+// ============================================================
+
+enum UserStatus {
+  active
+  suspended
+  pending
+}
+
+enum OrganizationType {
+  business
+  agency
+}
+
+/// Roles from Spec §19. Scope is implied by whether a membership carries a
+/// businessId (business-scoped) or not (organisation-wide).
+enum MembershipRole {
+  super_admin
+  org_owner
+  business_owner
+  marketing_manager
+  team_member
+  analyst
+  agency
+  client
+  viewer
+}
+
+/// Business Brain maturity ladder (Spec §1, Engine 1).
+enum BusinessBrainStage {
+  new
+  profile_established
+  patterns_detected
+  campaign_intelligence
+  predictive
+}
+
+/// AI autonomy levels (Spec §6).
+enum AutonomyLevel {
+  advisor // L1
+  assistant // L2
+  manager // L3
+  autonomous // L4
+}
+
+enum CampaignObjective {
+  get_customers
+  get_leads
+  increase_sales
+  website_traffic
+  whatsapp_messages
+  promote_event
+  promote_app
+  build_awareness
+  recruit_participants
+}
+
+enum ConversionDestination {
+  website
+  whatsapp
+  phone
+  smart_page
+}
+
+enum CampaignStatus {
+  draft
+  pending_approval
+  scheduled
+  active
+  paused
+  completed
+  archived
+}
+
+enum ChannelType {
+  google
+  meta
+  instagram
+  facebook
+  youtube
+  tiktok
+  linkedin
+  microsoft
+  adsrobotic_network
+}
+
+enum ConnectionStatus {
+  pending
+  connected
+  disconnected
+  error
+}
+
+enum CreativeType {
+  headline
+  primary_text
+  description
+  cta
+  image
+  video
+  banner
+  poster
+}
+
+/// Creative experimentation angles (Spec §3, Engine 3).
+enum CreativeAngle {
+  problem
+  benefit
+  social_proof
+  urgency
+}
+
+enum AssetKind {
+  image
+  video
+  banner
+  poster
+  logo
+}
+
+enum LeadStatus {
+  new
+  contacted
+  qualified
+  disqualified
+  converted
+}
+
+enum LeadDestination {
+  whatsapp
+  form
+  call
+  website
+}
+
+/// Estimated vs actual — never conflate the two (Spec §28).
+enum MetricSource {
+  estimated
+  actual
+}
+
+enum RuleAction {
+  pause_campaign
+  notify
+  reallocate_budget
+}
+
+enum AutomationTrigger {
+  cost_per_lead_exceeds
+  daily_spend_exceeds
+  cost_per_customer_exceeds
+  low_ctr
+  performance_drop
+}
+
+enum RecommendationStatus {
+  pending
+  accepted
+  dismissed
+  auto_applied
+}
+
+/// Confidence vocabulary — never imply unwarranted certainty (Spec §22).
+enum AIConfidence {
+  high
+  moderate
+  early_signal
+  more_data_needed
+}
+
+enum AIActivityType {
+  analysis
+  campaign_created
+  campaign_paused
+  campaign_resumed
+  budget_reallocated
+  creative_generated
+  experiment_started
+  report_generated
+}
+
+enum MemoryCategory {
+  identity
+  customer
+  marketing
+}
+
+enum ConversationRole {
+  user
+  assistant
+  system
+}
+
+enum NotificationType {
+  recommendation
+  budget_alert
+  campaign_status
+  system
+}
+
+enum InvoiceStatus {
+  draft
+  open
+  paid
+  void
+}
+
+enum PaymentStatus {
+  pending
+  succeeded
+  failed
+  refunded
+}
+
+/// AdWallet ledger movement types — the transparent financial ledger (Spec §4).
+enum WalletTxnType {
+  fund
+  ad_spend
+  service_fee
+  reserve
+  refund
+}
+
+enum PublisherStatus {
+  pending
+  approved
+  suspended
+}
+
+// ============================================================
+// Identity & tenancy
+// ============================================================
+
+model User {
+  id              String     @id @default(uuid())
+  email           String     @unique
+  passwordHash    String
+  name            String?
+  status          UserStatus @default(pending)
+  emailVerifiedAt DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  memberships   Membership[]
+  notifications Notification[]
+  conversations Conversation[]
+  sessions      Session[]
+}
+
+/// Server-side session. The raw token is returned to the client once (as an
+/// HttpOnly cookie); only its SHA-256 hash is stored here (Spec §21).
+model Session {
+  id          String   @id @default(uuid())
+  userId      String
+  tokenHash   String   @unique
+  expiresAt   DateTime
+  ip          String?
+  userAgent   String?
+  rotatedFrom String?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Organization {
+  id        String           @id @default(uuid())
+  name      String
+  slug      String           @unique
+  type      OrganizationType @default(business)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  memberships Membership[]
+  businesses  Business[]
+  invoices    Invoice[]
+  payments    Payment[]
+  apiKeys     ApiKey[]
+  auditLogs   AuditLog[]
+}
+
+model Membership {
+  id             String         @id @default(uuid())
+  userId         String
+  organizationId String
+  /// Non-null for business-scoped roles (e.g. marketing_manager on one Business).
+  businessId     String?
+  role           MembershipRole
+  createdAt      DateTime       @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  business     Business?    @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId, businessId])
+  @@index([organizationId])
+  @@index([businessId])
+}
+
+model Business {
+  id             String             @id @default(uuid())
+  organizationId String
+  name           String
+  slug           String             @unique
+  brainStage     BusinessBrainStage @default(new)
+  autonomyLevel  AutonomyLevel      @default(assistant)
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  memberships        Membership[]
+  profile            BusinessProfile?
+  products           Product[]
+  services           Service[]
+  customers          Customer[]
+  audienceProfiles   AudienceProfile[]
+  advertisingAccounts AdvertisingAccount[]
+  channelConnections ChannelConnection[]
+  campaignGroups     CampaignGroup[]
+  campaigns          Campaign[]
+  creatives          Creative[]
+  creativeAssets     CreativeAsset[]
+  landingPages       LandingPage[]
+  leads              Lead[]
+  conversions        Conversion[]
+  sales              Sale[]
+  budgetRules        BudgetRule[]
+  automationRules    AutomationRule[]
+  recommendations    AIRecommendation[]
+  activities         AIActivity[]
+  memories           BusinessMemory[]
+  conversations      Conversation[]
+  wallet             AdWallet?
+
+  @@index([organizationId])
+}
+
+// ============================================================
+// Business Brain (Spec §1, Engine 1)
+// ============================================================
+
+model BusinessProfile {
+  id               String   @id @default(uuid())
+  businessId       String   @unique
+  industry         String?
+  description      String?
+  mission          String?
+  valueProposition String?
+  website          String?
+  socialLinks      Json? // { instagram, facebook, linkedin, ... }
+  brandVoice       String?
+  brandColors      Json? // string[]
+  logoUrl          String?
+  locations        Json? // [{ label, city, country, lat, lng }]
+  currency         String   @default("USD")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  description String?
+  price       Decimal? @db.Decimal(14, 2)
+  currency    String   @default("USD")
+  url         String?
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  businessId  String
+  name        String
+  description String?
+  price       Decimal? @db.Decimal(14, 2)
+  currency    String   @default("USD")
+  createdAt   DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model Customer {
+  id           String   @id @default(uuid())
+  businessId   String
+  name         String?
+  email        String?
+  phone        String?
+  location     String?
+  source       String?
+  lifetimeValue Decimal? @db.Decimal(14, 2)
+  tags         String[]
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  sales    Sale[]
+
+  @@index([businessId])
+}
+
+/// Recommended / saved target audiences (Spec §2, Engine 2).
+model AudienceProfile {
+  id           String   @id @default(uuid())
+  businessId   String
+  name         String
+  description  String?
+  demographics Json? // { ageMin, ageMax, gender, ... }
+  locations    Json?
+  interests    String[]
+  painPoints   String[]
+  createdAt    DateTime @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  adSets   AdSet[]
+
+  @@index([businessId])
+}
+
+/// Persistent business intelligence memory (Spec §20 BusinessMemory).
+model BusinessMemory {
+  id         String         @id @default(uuid())
+  businessId String
+  category   MemoryCategory
+  key        String
+  value      Json
+  confidence AIConfidence?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, key])
+  @@index([businessId])
+}
+
+// ============================================================
+// Channels (Spec §4)
+// ============================================================
+
+model AdvertisingAccount {
+  id                String      @id @default(uuid())
+  businessId        String
+  channel           ChannelType
+  externalAccountId String?
+  name              String?
+  currency          String      @default("USD")
+  createdAt         DateTime    @default(now())
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+}
+
+model ChannelConnection {
+  id                    String           @id @default(uuid())
+  businessId            String
+  channel               ChannelType
+  status                ConnectionStatus @default(pending)
+  externalAccountId     String?
+  /// OAuth tokens encrypted at rest with TOKEN_ENCRYPTION_KEY (Spec §21).
+  encryptedCredentials  String?
+  scopes                String[]
+  connectedById         String?
+  lastSyncedAt          DateTime?
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  business Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([businessId, channel])
+  @@index([businessId])
+}
+
+// ============================================================
+// Campaigns, ad sets, ads, creatives (Spec §20)
+// ============================================================
+
+model CampaignGroup {
+  id         String            @id @default(uuid())
+  businessId String
+  name       String
+  objective  CampaignObjective
+  createdAt  DateTime          @default(now())
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaigns Campaign[]
+
+  @@index([businessId])
+}
+
+model Campaign {
+  id                    String                @id @default(uuid())
+  businessId            String
+  campaignGroupId       String?
+  name                  String
+  objective             CampaignObjective
+  status                CampaignStatus        @default(draft)
+  conversionDestination ConversionDestination
+  /// URL, phone number, WhatsApp target, or the LandingPage id for smart_page.
+  destinationValue      String?
+  channel               ChannelType?
+  budgetTotal           Decimal               @db.Decimal(14, 2)
+  budgetDaily           Decimal?              @db.Decimal(14, 2)
+  currency              String                @default("USD")
+  autonomyLevel         AutonomyLevel         @default(assistant)
+  /// Provider-side ids once the campaign is launched on a channel (Spec §27).
+  externalId            String?
+  externalAccountId     String?
+  launchedAt            DateTime?
+  /// The AI Strategist's plan + reasoning (Spec §2).
+  strategy              Json?
+  startAt               DateTime?
+  endAt                 DateTime?
+  createdById           String?
+  approvedById          String?
+  approvedAt            DateTime?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  deletedAt             DateTime?
+
+  business      Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaignGroup CampaignGroup? @relation(fields: [campaignGroupId], references: [id])
+  adSets        AdSet[]
+  ads           Ad[]
+  creatives     Creative[]
+  metrics       CampaignMetric[]
+  leads         Lead[]
+  conversions   Conversion[]
+  sales         Sale[]
+  landingPage   LandingPage?
+  budgetRules   BudgetRule[]
+  automationRules AutomationRule[]
+  recommendations AIRecommendation[]
+  activities    AIActivity[]
+
+  @@index([businessId])
+  @@index([status])
+}
+
+model AdSet {
+  id                String         @id @default(uuid())
+  campaignId        String
+  audienceProfileId String?
+  name              String
+  status            CampaignStatus @default(draft)
+  budgetDaily       Decimal?       @db.Decimal(14, 2)
+  targeting         Json?
+  createdAt         DateTime       @default(now())
+
+  campaign        Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  audienceProfile AudienceProfile? @relation(fields: [audienceProfileId], references: [id])
+  ads             Ad[]
+
+  @@index([campaignId])
+}
+
+model Ad {
+  id                String         @id @default(uuid())
+  campaignId        String
+  adSetId           String?
+  name              String
+  status            CampaignStatus @default(draft)
+  primaryCreativeId String?
+  createdAt         DateTime       @default(now())
+
+  campaign  Campaign         @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  adSet     AdSet?           @relation(fields: [adSetId], references: [id])
+  creatives Creative[]
+  metrics   CampaignMetric[]
+
+  @@index([campaignId])
+  @@index([adSetId])
+}
+
+model Creative {
+  id           String         @id @default(uuid())
+  businessId   String
+  campaignId   String?
+  adId         String?
+  type         CreativeType
+  angle        CreativeAngle?
+  /// Text content (headline/body/cta) OR a caption for a visual asset.
+  content      String?
+  assetId      String?
+  generatedByAI Boolean       @default(false)
+  createdAt    DateTime       @default(now())
+
+  business Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign?      @relation(fields: [campaignId], references: [id])
+  ad       Ad?            @relation(fields: [adId], references: [id])
+  asset    CreativeAsset? @relation(fields: [assetId], references: [id])
+
+  @@index([businessId])
+  @@index([campaignId])
+}
+
+model CreativeAsset {
+  id            String    @id @default(uuid())
+  businessId    String
+  kind          AssetKind
+  url           String
+  mimeType      String?
+  width         Int?
+  height        Int?
+  generatedByAI Boolean   @default(false)
+  prompt        String?
+  createdAt     DateTime  @default(now())
+
+  business  Business   @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  creatives Creative[]
+
+  @@index([businessId])
+}
+
+// ============================================================
+// Smart landing pages (Spec §5)
+// ============================================================
+
+model LandingPage {
+  id          String    @id @default(uuid())
+  businessId  String
+  campaignId  String?   @unique
+  slug        String    @unique
+  title       String
+  /// Section config: hero, offer, testimonials, whatsapp/call buttons, map, etc.
+  config      Json
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  views       Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([businessId])
+}
+
+// ============================================================
+// Outcomes: leads, conversions, sales (Spec §1, Engine 5)
+// ============================================================
+
+model Lead {
+  id          String          @id @default(uuid())
+  businessId  String
+  campaignId  String?
+  name        String?
+  email       String?
+  phone       String?
+  message     String?
+  destination LeadDestination
+  status      LeadStatus      @default(new)
+  qualified   Boolean         @default(false)
+  value       Decimal?        @db.Decimal(14, 2)
+  source      Json?
+  createdAt   DateTime        @default(now())
+
+  business    Business     @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign    Campaign?    @relation(fields: [campaignId], references: [id])
+  conversions Conversion[]
+  sales       Sale[]
+
+  @@index([businessId])
+  @@index([campaignId])
+}
+
+model Conversion {
+  id         String       @id @default(uuid())
+  businessId String
+  campaignId String?
+  leadId     String?
+  /// e.g. whatsapp | form | call | purchase
+  type       String
+  value      Decimal?     @db.Decimal(14, 2)
+  source     MetricSource @default(actual)
+  occurredAt DateTime     @default(now())
+  createdAt  DateTime     @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  lead     Lead?     @relation(fields: [leadId], references: [id])
+
+  @@index([businessId])
+  @@index([campaignId])
+}
+
+model Sale {
+  id         String   @id @default(uuid())
+  businessId String
+  campaignId String?
+  customerId String?
+  leadId     String?
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   String   @default("USD")
+  repeat     Boolean  @default(false)
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  lead     Lead?     @relation(fields: [leadId], references: [id])
+
+  @@index([businessId])
+  @@index([campaignId])
+}
+
+/// Daily performance rollup. `source` separates estimated from actual (Spec §28).
+model CampaignMetric {
+  id            String       @id @default(uuid())
+  campaignId    String
+  adId          String?
+  channel       ChannelType?
+  date          DateTime     @db.Date
+  impressions   Int          @default(0)
+  clicks        Int          @default(0)
+  spend         Decimal      @default(0) @db.Decimal(14, 2)
+  leads         Int          @default(0)
+  qualifiedLeads Int         @default(0)
+  conversions   Int          @default(0)
+  revenue       Decimal      @default(0) @db.Decimal(14, 2)
+  source        MetricSource @default(actual)
+  createdAt     DateTime     @default(now())
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  ad       Ad?      @relation(fields: [adId], references: [id])
+
+  @@unique([campaignId, adId, date, source])
+  @@index([campaignId])
+  @@index([date])
+}
+
+// ============================================================
+// Budget Guardian & automation (Spec §4, Engine 4; §6)
+// ============================================================
+
+model BudgetRule {
+  id                  String     @id @default(uuid())
+  businessId          String
+  campaignId          String?
+  monthlyBudget       Decimal?   @db.Decimal(14, 2)
+  maxDailySpend       Decimal?   @db.Decimal(14, 2)
+  maxCostPerLead      Decimal?   @db.Decimal(14, 2)
+  maxCostPerCustomer  Decimal?   @db.Decimal(14, 2)
+  actionWhenExceeded  RuleAction @default(pause_campaign)
+  /// e.g. "AI may pause but must ask before increasing budget" (Spec §4).
+  autonomyNote        String?
+  active              Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([businessId])
+}
+
+model AutomationRule {
+  id              String            @id @default(uuid())
+  businessId      String
+  campaignId      String?
+  name            String
+  trigger         AutomationTrigger
+  threshold       Decimal           @db.Decimal(14, 2)
+  action          RuleAction        @default(pause_campaign)
+  requiresApproval Boolean          @default(false)
+  active          Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([businessId])
+}
+
+// ============================================================
+// AI orchestration surface: recommendations & activity log (Spec §21, §22)
+// ============================================================
+
+model AIRecommendation {
+  id             String               @id @default(uuid())
+  businessId     String
+  campaignId     String?
+  title          String
+  body           String
+  /// Plain-language "why" (Spec §22): data considered + pattern + expected impact.
+  rationale      String
+  confidence     AIConfidence         @default(moderate)
+  status         RecommendationStatus @default(pending)
+  expectedImpact Json?
+  dataConsidered Json?
+  reversible     Boolean              @default(true)
+  decidedById    String?
+  decidedAt      DateTime?
+  createdAt      DateTime             @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([businessId])
+  @@index([status])
+}
+
+/// Every significant AI action is recorded here (Spec §21).
+model AIActivity {
+  id            String         @id @default(uuid())
+  businessId    String
+  campaignId    String?
+  type          AIActivityType
+  summary       String
+  detail        Json?
+  moneyProtected Decimal?      @db.Decimal(14, 2)
+  autonomyLevel AutonomyLevel  @default(assistant)
+  reversible    Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+
+  business Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@index([businessId])
+  @@index([createdAt])
+}
+
+// ============================================================
+// Conversations (Spec §7 chat interface)
+// ============================================================
+
+model Conversation {
+  id         String   @id @default(uuid())
+  businessId String
+  userId     String?
+  title      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business Business              @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  user     User?                @relation(fields: [userId], references: [id])
+  messages ConversationMessage[]
+
+  @@index([businessId])
+}
+
+model ConversationMessage {
+  id             String           @id @default(uuid())
+  conversationId String
+  role           ConversationRole
+  content        String
+  meta           Json?
+  createdAt      DateTime         @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+model Notification {
+  id         String           @id @default(uuid())
+  userId     String
+  businessId String?
+  type       NotificationType
+  title      String
+  body       String?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ============================================================
+// Billing & transparent ad ledger (Spec §4)
+// ============================================================
+
+/// Per-business ad wallet — the transparent "TOTAL FUNDED / AD SPEND / SERVICE
+/// FEE / RESERVED" ledger surface (Spec §4). Balance is derived from
+/// transactions but cached here for fast reads.
+model AdWallet {
+  id         String   @id @default(uuid())
+  businessId String   @unique
+  currency   String   @default("USD")
+  funded     Decimal  @default(0) @db.Decimal(14, 2)
+  adSpend    Decimal  @default(0) @db.Decimal(14, 2)
+  serviceFee Decimal  @default(0) @db.Decimal(14, 2)
+  reserved   Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  business     Business          @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+}
+
+model WalletTransaction {
+  id          String       @id @default(uuid())
+  walletId    String
+  type        WalletTxnType
+  amount      Decimal      @db.Decimal(14, 2)
+  currency    String       @default("USD")
+  description String?
+  campaignId  String?
+  createdAt   DateTime     @default(now())
+
+  wallet AdWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+}
+
+model Invoice {
+  id             String        @id @default(uuid())
+  organizationId String
+  businessId     String?
+  number         String        @unique
+  status         InvoiceStatus @default(draft)
+  amountDue      Decimal       @db.Decimal(14, 2)
+  currency       String        @default("USD")
+  issuedAt       DateTime      @default(now())
+  dueAt          DateTime?
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  payments     Payment[]
+
+  @@index([organizationId])
+}
+
+model Payment {
+  id             String        @id @default(uuid())
+  organizationId String
+  invoiceId      String?
+  businessId     String?
+  amount         Decimal       @db.Decimal(14, 2)
+  currency       String        @default("USD")
+  status         PaymentStatus @default(pending)
+  provider       String?
+  providerRef    String?
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invoice      Invoice?     @relation(fields: [invoiceId], references: [id])
+
+  @@index([organizationId])
+}
+
+// ============================================================
+// Security & platform (Spec §21)
+// ============================================================
+
+/// Immutable-by-convention audit trail — the system of record for "who did what".
+model AuditLog {
+  id             String   @id @default(uuid())
+  organizationId String?
+  businessId     String?
+  userId         String?
+  action         String
+  entityType     String?
+  entityId       String?
+  metadata       Json?
+  ip             String?
+  createdAt      DateTime @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId])
+  @@index([businessId])
+  @@index([createdAt])
+}
+
+model ApiKey {
+  id             String    @id @default(uuid())
+  organizationId String
+  name           String
+  hashedKey      String    @unique
+  prefix         String
+  scopes         String[]
+  createdById    String?
+  lastUsedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+// ============================================================
+// AdsRobotic Publisher Network (Spec §17 — future infrastructure)
+// ============================================================
+
+model Publisher {
+  id          String          @id @default(uuid())
+  name        String
+  ownerUserId String?
+  website     String?
+  status      PublisherStatus @default(pending)
+  createdAt   DateTime        @default(now())
+
+  inventory AdInventory[]
+}
+
+model AdInventory {
+  id          String   @id @default(uuid())
+  publisherId String
+  name        String
+  format      String
+  placement   String?
+  floorCpm    Decimal? @db.Decimal(14, 2)
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  publisher Publisher @relation(fields: [publisherId], references: [id], onDelete: Cascade)
+
+  @@index([publisherId])
+}

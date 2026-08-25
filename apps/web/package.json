@@ -1,0 +1,41 @@
+{
+  "name": "@adsrobotic/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "smoke": "tsx scripts/smoke.ts",
+    "serve-db": "tsx scripts/serve-db.ts"
+  },
+  "dependencies": {
+    "@adsrobotic/ai": "workspace:*",
+    "@adsrobotic/channel-core": "workspace:*",
+    "@adsrobotic/config": "workspace:*",
+    "@adsrobotic/core": "workspace:*",
+    "@adsrobotic/db": "workspace:*",
+    "@adsrobotic/ui": "workspace:*",
+    "next": "^15.1.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.9.0",
+    "@types/react": "^19.0.1",
+    "@types/react-dom": "^19.0.1",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.5",
+    "embedded-postgres": "18.4.0-beta.17",
+    "pg": "^8.13.1",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.19.2"
+  }
+}
