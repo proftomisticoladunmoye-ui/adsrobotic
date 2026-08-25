@@ -20,7 +20,7 @@ services:
     branch: main
     buildCommand: >-
       corepack enable &&
-      pnpm install --frozen-lockfile &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter @adsrobotic/db exec prisma generate &&
       pnpm --filter @adsrobotic/web build
     startCommand: pnpm --filter @adsrobotic/web start
@@ -58,7 +58,7 @@ services:
     branch: main
     buildCommand: >-
       corepack enable &&
-      pnpm install --frozen-lockfile &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm --filter @adsrobotic/db exec prisma generate
     # The worker runs its TypeScript directly via tsx — no build step needed.
     startCommand: pnpm --filter @adsrobotic/worker start
