@@ -256,6 +256,13 @@ enum PublisherStatus {
   suspended
 }
 
+enum InvitationStatus {
+  pending
+  accepted
+  revoked
+  expired
+}
+
 // ============================================================
 // Identity & tenancy
 // ============================================================
@@ -307,6 +314,29 @@ model Organization {
   payments    Payment[]
   apiKeys     ApiKey[]
   auditLogs   AuditLog[]
+  invitations Invitation[]
+}
+
+/// A pending invitation to join an organisation with a role (Spec §19, §21).
+/// The raw token is delivered once via an invite link; only its hash is stored.
+model Invitation {
+  id             String           @id @default(uuid())
+  organizationId String
+  /// Non-null grants a business-scoped role; null grants an org-wide role.
+  businessId     String?
+  email          String
+  role           MembershipRole
+  tokenHash      String           @unique
+  status         InvitationStatus @default(pending)
+  invitedById    String?
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime         @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([email])
 }
 
 model Membership {

@@ -12,6 +12,7 @@ import {
   LayoutTemplate,
   Cable,
   MessageSquare,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@adsrobotic/ui';
@@ -31,6 +32,7 @@ const ICONS = {
   creative: Wand2,
   pages: LayoutTemplate,
   channels: Cable,
+  team: Users,
   assistant: MessageSquare,
 } satisfies Record<string, LucideIcon>;
 
@@ -43,6 +45,7 @@ export const NAV: NavItem[] = [
   { href: '/creative', label: 'Creative', icon: 'creative' },
   { href: '/pages', label: 'Smart Pages', icon: 'pages' },
   { href: '/channels', label: 'Channels', icon: 'channels' },
+  { href: '/team', label: 'Team', icon: 'team' },
   { href: '/assistant', label: 'Assistant', icon: 'assistant' },
 ];
 

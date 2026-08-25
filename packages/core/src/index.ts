@@ -5,6 +5,7 @@ export * from './session';
 export * from './auth';
 export * from './tenancy';
 export * from './businesses';
+export * from './team';
 export * from './slug';
 export * from './business-brain';
 export * from './strategist';
@@ -31,5 +32,6 @@ export type {
   ChannelType,
   CreativeAngle,
   LeadStatus,
+  MembershipRole,
 } from '@adsrobotic/db';
 export type { ChatMessage } from '@adsrobotic/ai';

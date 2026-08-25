@@ -535,6 +535,55 @@ async function main() {
     !(await core.canAccessBusinessId(reg.user.id, rival.businessId)),
   );
 
+  // 18. Team management — invite, accept, roles, access (Spec §19, §23).
+  const orgId = reg.organizationId;
+  check('owner can manage the team', await core.canManageTeam(reg.user.id, orgId));
+  check('rival cannot manage this org', !(await core.canManageTeam(rival.user.id, orgId)));
+
+  const invite = await core.inviteMember({
+    organizationId: orgId,
+    email: 'analyst@bakery.test',
+    role: 'analyst',
+    invitedById: reg.user.id,
+  });
+  check('invite returns a one-time token', Boolean(invite.token));
+  const preview = await core.getInvitationByToken(invite.token);
+  check('invite is previewable by token', preview?.email === 'analyst@bakery.test' && preview?.role === 'analyst');
+
+  const analyst = await core.registerUser({
+    email: 'analyst@bakery.test',
+    password: 'analyst-secret-1',
+    businessName: 'Analyst Personal',
+  });
+  await core.acceptInvitation(invite.token, analyst.user.id);
+  const membersAfter = await core.listMembers(orgId);
+  check('accepted member joins the org', membersAfter.some((m) => m.userId === analyst.user.id && m.role === 'analyst'));
+  check('joined member can now access the org business', await core.canAccessBusinessId(analyst.user.id, reg.businessId));
+
+  // A used invite cannot be replayed.
+  let replayed = false;
+  try {
+    await core.acceptInvitation(invite.token, rival.user.id);
+  } catch {
+    replayed = true;
+  }
+  check('a used invite cannot be reused', replayed);
+
+  const analystMembership = membersAfter.find((m) => m.userId === analyst.user.id)!;
+  await core.changeMemberRole(orgId, analystMembership.membershipId, 'marketing_manager');
+  const promoted = await prisma.membership.findUnique({ where: { id: analystMembership.membershipId } });
+  check('a member role can be changed', promoted?.role === 'marketing_manager');
+
+  // The last owner cannot be removed.
+  const ownerMembership = membersAfter.find((m) => m.userId === reg.user.id && m.role === 'org_owner')!;
+  let blockedRemoval = false;
+  try {
+    await core.removeMember(orgId, ownerMembership.membershipId);
+  } catch {
+    blockedRemoval = true;
+  }
+  check('the last owner cannot be removed', blockedRemoval);
+
   // Teardown: release the DB pool before stopping PG. On Windows the temp data
   // dir can stay briefly locked (EBUSY) — that's cosmetic, not a test failure.
   await prisma.$disconnect().catch(() => undefined);
