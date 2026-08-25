@@ -62,8 +62,8 @@ export default async function ChannelsPage({
                   {connected
                     ? `Ad account ${conn?.externalAccountId ?? ''} · scopes: ${conn?.scopes.join(', ') || '—'}`
                     : ch.configured
-                      ? 'Facebook & Instagram campaigns, audiences, and insights.'
-                      : 'Not configured on this deployment — add Meta app credentials to enable.'}
+                      ? `Launch and manage ${ch.label} campaigns, audiences, and insights.`
+                      : `Not configured on this deployment — add ${ch.label} credentials to enable.`}
                 </p>
                 <Button
                   asChild
