@@ -4,6 +4,7 @@ export * from './password';
 export * from './session';
 export * from './auth';
 export * from './tenancy';
+export * from './businesses';
 export * from './slug';
 export * from './business-brain';
 export * from './strategist';

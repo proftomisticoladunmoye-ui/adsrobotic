@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { AutonomyBadge, Logo } from '@adsrobotic/ui';
+import type { AccessibleBusiness } from '@adsrobotic/core';
 import { logoutAction } from '@/app/actions/auth';
 import { SidebarNav, MobileNav } from '@/components/sidebar-nav';
+import { BusinessSwitcher } from '@/components/business-switcher';
 import type { CurrentUser } from '@/lib/current-user';
 
 const AUTONOMY_TO_LEVEL: Record<string, 1 | 2 | 3 | 4> = {
@@ -19,10 +21,18 @@ const BRAIN_STAGE_LABEL: Record<string, string> = {
   predictive: 'Predictive intelligence',
 };
 
-export function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
+export function AppShell({
+  user,
+  businesses,
+  children,
+}: {
+  user: CurrentUser;
+  businesses: AccessibleBusiness[];
+  children: React.ReactNode;
+}) {
   const business = user.activeBusiness!;
   const level = AUTONOMY_TO_LEVEL[business.autonomyLevel] ?? 2;
-  const initial = (user.name ?? business.name).charAt(0).toUpperCase();
+  const stageLabel = BRAIN_STAGE_LABEL[business.brainStage] ?? business.brainStage;
 
   return (
     <div className="min-h-screen bg-ar-background md:grid md:grid-cols-[256px_1fr]">
@@ -34,30 +44,23 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
           </Link>
         </div>
         <SidebarNav />
-        <div className="border-t border-ar-border p-3">
-          <div className="rounded-xl border border-ar-border/70 bg-ar-background p-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ar-blue text-sm font-semibold text-ar-white">
-                {initial}
-              </span>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ar-text">{business.name}</p>
-                <p className="truncate text-xs text-ar-muted">
-                  {BRAIN_STAGE_LABEL[business.brainStage] ?? business.brainStage}
-                </p>
-              </div>
-            </div>
-            <div className="mt-2.5 flex items-center justify-between">
-              <AutonomyBadge level={level} />
-              <form action={logoutAction}>
-                <button
-                  type="submit"
-                  className="rounded-md px-2 py-1 text-xs font-medium text-ar-muted transition-colors hover:bg-ar-blue-light hover:text-ar-blue"
-                >
-                  Log out
-                </button>
-              </form>
-            </div>
+        <div className="space-y-2 border-t border-ar-border p-3">
+          <BusinessSwitcher
+            businesses={businesses}
+            activeId={business.id}
+            activeName={business.name}
+            activeStage={stageLabel}
+          />
+          <div className="flex items-center justify-between px-0.5">
+            <AutonomyBadge level={level} />
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="rounded-md px-2 py-1 text-xs font-medium text-ar-muted transition-colors hover:bg-ar-blue-light hover:text-ar-blue"
+              >
+                Log out
+              </button>
+            </form>
           </div>
         </div>
       </aside>

@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { cookies } from 'next/headers';
 import { validateSession, loadActor, resolveActiveBusiness, type Actor } from '@adsrobotic/core';
-import { SESSION_COOKIE } from './session-cookie';
+import { SESSION_COOKIE, ACTIVE_BUSINESS_COOKIE } from './session-cookie';
 
 export interface CurrentUser {
   id: string;
@@ -32,9 +32,10 @@ export const getCurrentUser = cache(async function getCurrentUser(): Promise<Cur
   const validated = await validateSession(token);
   if (!validated) return null;
 
+  const preferredBusinessId = store.get(ACTIVE_BUSINESS_COOKIE)?.value;
   const [actor, activeBusiness] = await Promise.all([
     loadActor(validated.user.id),
-    resolveActiveBusiness(validated.user.id),
+    resolveActiveBusiness(validated.user.id, preferredBusinessId),
   ]);
 
   return {

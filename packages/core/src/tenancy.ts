@@ -1,4 +1,5 @@
 import { prisma, type MembershipRole } from '@adsrobotic/db';
+import { listAccessibleBusinesses } from './businesses';
 
 /** A user's role within one organisation (and optionally one business). */
 export interface ActorMembership {
@@ -42,28 +43,23 @@ export interface ActiveBusiness {
 }
 
 /**
- * Resolve the business a user is currently working in. MVP heuristic: the first
- * (oldest) non-deleted business in the organisations they belong to. A later
- * phase adds an explicit business switcher persisted per session.
+ * Resolve the business a user is currently working in. Honours `preferredId`
+ * from the session's business switcher when the user can access it; otherwise
+ * falls back to the first (oldest) accessible business (Spec §19).
  */
-export async function resolveActiveBusiness(userId: string): Promise<ActiveBusiness | null> {
-  const orgIds = (await prisma.membership.findMany({ where: { userId } })).map(
-    (m) => m.organizationId,
-  );
-  if (orgIds.length === 0) return null;
-
-  const business = await prisma.business.findFirst({
-    where: { organizationId: { in: orgIds }, deletedAt: null },
-    orderBy: { createdAt: 'asc' },
-  });
-  if (!business) return null;
-
+export async function resolveActiveBusiness(
+  userId: string,
+  preferredId?: string,
+): Promise<ActiveBusiness | null> {
+  const list = await listAccessibleBusinesses(userId);
+  if (list.length === 0) return null;
+  const chosen = (preferredId && list.find((b) => b.id === preferredId)) || list[0]!;
   return {
-    id: business.id,
-    name: business.name,
-    slug: business.slug,
-    organizationId: business.organizationId,
-    brainStage: business.brainStage,
-    autonomyLevel: business.autonomyLevel,
+    id: chosen.id,
+    name: chosen.name,
+    slug: chosen.slug,
+    organizationId: chosen.organizationId,
+    brainStage: chosen.brainStage,
+    autonomyLevel: chosen.autonomyLevel,
   };
 }

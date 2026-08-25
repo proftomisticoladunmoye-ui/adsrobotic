@@ -510,6 +510,31 @@ async function main() {
     check('dismissing marks the recommendation dismissed', true);
   }
 
+  // 17. Multi-business / agency layer — list, create, switch, access (Spec §19).
+  const before = await core.listAccessibleBusinesses(reg.user.id);
+  check('user sees their own business', before.some((b) => b.id === reg.businessId));
+
+  const newBiz = await core.createBusinessForUser(reg.user.id, 'Second Location');
+  const after = await core.listAccessibleBusinesses(reg.user.id);
+  check('org owner can add a second business', after.length === before.length + 1);
+  check('new business is accessible', after.some((b) => b.id === newBiz.id));
+
+  const activeNew = await core.resolveActiveBusiness(reg.user.id, newBiz.id);
+  check('switching honours a preferred business', activeNew?.id === newBiz.id);
+  const activeDefault = await core.resolveActiveBusiness(reg.user.id, 'not-a-real-id');
+  check('invalid preference falls back to first accessible', activeDefault?.id === reg.businessId);
+
+  check('canAccess is true for own business', await core.canAccessBusinessId(reg.user.id, newBiz.id));
+  const rival = await core.registerUser({
+    email: 'rival@other.test',
+    password: 'other-secret-1',
+    businessName: 'Rival Co',
+  });
+  check(
+    'canAccess is false for another org business',
+    !(await core.canAccessBusinessId(reg.user.id, rival.businessId)),
+  );
+
   // Teardown: release the DB pool before stopping PG. On Windows the temp data
   // dir can stay briefly locked (EBUSY) — that's cosmetic, not a test failure.
   await prisma.$disconnect().catch(() => undefined);
