@@ -5,7 +5,7 @@
  *
  *   pnpm --filter @adsrobotic/web serve-db
  */
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import EmbeddedPostgres from 'embedded-postgres';
@@ -35,7 +35,7 @@ function allMigrations(): string[] {
 
 async function main() {
   const server = new EmbeddedPostgres({ databaseDir: dataDir, user: USER, password: PASS, port: PORT, persistent: true });
-  const fresh = !readdirSync(repoRoot + '/.devdata', { withFileTypes: true }).some((d) => d.name === 'pg') || readdirSync(dataDir).length === 0;
+  const fresh = !existsSync(dataDir) || readdirSync(dataDir).length === 0;
 
   if (fresh) {
     console.log('Initialising embedded PostgreSQL…');
