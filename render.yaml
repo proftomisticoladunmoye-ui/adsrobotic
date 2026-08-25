@@ -33,6 +33,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Let corepack fetch the pinned pnpm without an interactive prompt.
+      - key: COREPACK_ENABLE_DOWNLOAD_PROMPT
+        value: "0"
       - key: NODE_ENV
         value: production
       # Baked at build time — set to the live URL (Render external URL or custom
@@ -63,6 +66,9 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
+      # Let corepack fetch the pinned pnpm without an interactive prompt.
+      - key: COREPACK_ENABLE_DOWNLOAD_PROMPT
+        value: "0"
       - key: NODE_ENV
         value: production
       - key: GUARDIAN_INTERVAL_MS
