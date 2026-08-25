@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Alert, Badge, Button, Card, CardBody, CardHeader, CardTitle } from '@adsrobotic/ui';
+import { Alert, Badge, Button, Card, CardBody, CardHeader, CardTitle, PageHeader } from '@adsrobotic/ui';
 import { availableChannels, listConnections } from '@adsrobotic/core';
 import { getCurrentUser } from '@/lib/current-user';
 
@@ -25,12 +25,10 @@ export default async function ChannelsPage({
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Channel connections</h1>
-        <p className="mt-1 text-ar-muted">
-          Connect an advertising account so AdsRobotic can launch and manage campaigns for you.
-        </p>
-      </div>
+      <PageHeader
+        title="Channel connections"
+        description="Connect an advertising account so AdsRobotic can launch and manage campaigns for you."
+      />
 
       {sp.connected ? (
         <Alert tone="success" title="Connected">

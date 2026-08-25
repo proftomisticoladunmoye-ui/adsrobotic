@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Alert, Card, CardBody, CardHeader, CardTitle, MetricCard } from '@adsrobotic/ui';
+import { Wallet, TrendingUp, Gauge, UserCheck } from 'lucide-react';
+import { Card, CardBody, CardHeader, CardTitle, EmptyState, MetricCard, PageHeader } from '@adsrobotic/ui';
 import { getConversionIntelligence } from '@adsrobotic/core';
 import { getCurrentUser } from '@/lib/current-user';
 
@@ -23,24 +24,27 @@ export default async function IntelligencePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Conversion Intelligence</h1>
-        <p className="mt-1 text-ar-muted">What your advertising money actually achieved — impression to customer.</p>
-      </div>
+      <PageHeader
+        eyebrow="Outcome intelligence"
+        title="Conversion Intelligence"
+        description="What your advertising money actually achieved — impression to customer."
+      />
 
       {!hasData ? (
-        <Alert tone="ai" title="No outcomes to measure yet">
-          Once campaigns run and Smart Pages capture leads, the full funnel and its economics appear
-          here — measured, never estimated.
-        </Alert>
+        <EmptyState
+          tone="ai"
+          icon={<TrendingUp className="h-6 w-6" />}
+          title="No outcomes to measure yet"
+          description="Once campaigns run and Smart Pages capture leads, the full funnel and its economics appear here — measured, never estimated."
+        />
       ) : null}
 
       {/* Return economics */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="Ad spend" value={money(data.spend)} />
-        <MetricCard label="Tracked revenue" value={money(data.revenue)} emphasis="growth" />
-        <MetricCard label="Return on ad spend" value={data.roas === null ? '—' : `${data.roas.toFixed(2)}×`} emphasis="ai" />
-        <MetricCard label="Cost / customer" value={money2(data.costPerCustomer)} />
+        <MetricCard label="Ad spend" value={money(data.spend)} icon={<Wallet className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Tracked revenue" value={money(data.revenue)} emphasis="growth" icon={<TrendingUp className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Return on ad spend" value={data.roas === null ? '—' : `${data.roas.toFixed(2)}×`} emphasis="ai" icon={<Gauge className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Cost / customer" value={money2(data.costPerCustomer)} icon={<UserCheck className="h-[18px] w-[18px]" />} />
       </div>
 
       {/* Funnel */}

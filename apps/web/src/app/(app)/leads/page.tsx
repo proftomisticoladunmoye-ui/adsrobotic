@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Badge, Button, Card, CardBody, Input, MetricCard } from '@adsrobotic/ui';
+import { UserPlus, BadgeCheck, CheckCircle2, Users2 } from 'lucide-react';
+import { Badge, Button, Card, CardBody, EmptyState, Input, MetricCard, PageHeader } from '@adsrobotic/ui';
 import { getLeadStats, listLeads, type LeadStatus } from '@adsrobotic/core';
 import { getCurrentUser } from '@/lib/current-user';
 import { convertLeadAction, setLeadStatusAction } from '@/app/actions/leads';
@@ -41,16 +42,16 @@ export default async function LeadsPage({
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Leads</h1>
-        <p className="mt-1 text-ar-muted">Everyone your advertising brought in — work them through the funnel.</p>
-      </div>
+      <PageHeader
+        title="Leads"
+        description="Everyone your advertising brought in — work them through the funnel."
+      />
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <MetricCard label="New" value={stats.new} />
-        <MetricCard label="Qualified" value={stats.qualified} emphasis="ai" />
-        <MetricCard label="Converted" value={stats.converted} emphasis="growth" />
-        <MetricCard label="Total" value={stats.total} />
+        <MetricCard label="New" value={stats.new} icon={<UserPlus className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Qualified" value={stats.qualified} emphasis="ai" icon={<BadgeCheck className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Converted" value={stats.converted} emphasis="growth" icon={<CheckCircle2 className="h-[18px] w-[18px]" />} />
+        <MetricCard label="Total" value={stats.total} icon={<Users2 className="h-[18px] w-[18px]" />} />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -73,12 +74,11 @@ export default async function LeadsPage({
       </div>
 
       {leads.length === 0 ? (
-        <Card>
-          <CardBody className="py-12 text-center text-ar-muted">
-            No leads {active ? `with status "${active}"` : 'yet'}. Launch a campaign or publish a
-            Smart Page to start capturing them.
-          </CardBody>
-        </Card>
+        <EmptyState
+          icon={<Users2 className="h-6 w-6" />}
+          title={active ? `No ${active} leads` : 'No leads yet'}
+          description="Launch a campaign or publish a Smart Page, and captured leads will land here to qualify and convert."
+        />
       ) : (
         <div className="space-y-3">
           {leads.map((lead) => (

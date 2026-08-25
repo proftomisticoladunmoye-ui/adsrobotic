@@ -10,23 +10,24 @@ import { cn } from '../utils/cn';
  * sparingly. `ai` (Electric Cyan) marks AI-driven actions.
  */
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ar-blue-bright focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ar-blue-bright focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        primary: 'bg-ar-blue text-ar-white hover:bg-ar-blue-dark',
-        secondary: 'border border-ar-border bg-ar-white text-ar-text hover:bg-ar-blue-light',
+        primary: 'bg-ar-blue text-ar-white shadow-xs hover:bg-ar-blue-dark hover:shadow-card',
+        secondary:
+          'border border-ar-border bg-ar-white text-ar-text shadow-xs hover:border-ar-blue-bright/50 hover:bg-ar-blue-light/50',
         ghost: 'text-ar-blue hover:bg-ar-blue-light',
         // Signal Orange — growth / high-intent CTA only (Spec §9). Do not overuse.
-        growth: 'bg-ar-orange text-ar-white hover:bg-ar-orange-dark',
+        growth: 'bg-ar-orange text-ar-white shadow-xs hover:bg-ar-orange-dark hover:shadow-card',
         // Electric Cyan — AI-driven action (Spec §9).
-        ai: 'bg-ar-cyan text-ar-blue-dark hover:bg-ar-cyan-dark hover:text-ar-white',
-        danger: 'bg-ar-critical text-ar-white hover:opacity-90',
+        ai: 'bg-ar-cyan text-ar-blue-dark shadow-xs hover:bg-ar-cyan-dark hover:text-ar-white',
+        danger: 'bg-ar-critical text-ar-white shadow-xs hover:opacity-90',
       },
       size: {
         sm: 'h-8 px-3 text-sm',
         md: 'h-10 px-4 text-sm',
-        lg: 'h-12 px-6 text-base',
+        lg: 'h-11 px-6 text-[15px]',
       },
     },
     defaultVariants: { variant: 'primary', size: 'md' },

@@ -1,25 +1,8 @@
 import Link from 'next/link';
-import { AutonomyBadge, Badge, Logo } from '@adsrobotic/ui';
+import { AutonomyBadge, Logo } from '@adsrobotic/ui';
 import { logoutAction } from '@/app/actions/auth';
+import { SidebarNav, MobileNav } from '@/components/sidebar-nav';
 import type { CurrentUser } from '@/lib/current-user';
-
-const NAV = [
-  { href: '/dashboard', label: 'Dashboard' },
-  { href: '/campaigns', label: 'Campaigns' },
-  { href: '/leads', label: 'Leads' },
-  { href: '/recommendations', label: 'Recommendations' },
-  { href: '/intelligence', label: 'Intelligence' },
-  { href: '/creative', label: 'Creative' },
-  { href: '/pages', label: 'Smart Pages' },
-  { href: '/channels', label: 'Channels' },
-  { href: '/assistant', label: 'Assistant' },
-];
-
-// The mobile bottom bar shows five core destinations; the rest live in the
-// sidebar to keep the bar readable on small screens.
-const MOBILE_NAV = NAV.filter(
-  (n) => !['/pages', '/channels', '/intelligence', '/recommendations'].includes(n.href),
-);
 
 const AUTONOMY_TO_LEVEL: Record<string, 1 | 2 | 3 | 4> = {
   advisor: 1,
@@ -39,73 +22,59 @@ const BRAIN_STAGE_LABEL: Record<string, string> = {
 export function AppShell({ user, children }: { user: CurrentUser; children: React.ReactNode }) {
   const business = user.activeBusiness!;
   const level = AUTONOMY_TO_LEVEL[business.autonomyLevel] ?? 2;
+  const initial = (user.name ?? business.name).charAt(0).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-ar-background md:grid md:grid-cols-[240px_1fr]">
+    <div className="min-h-screen bg-ar-background md:grid md:grid-cols-[256px_1fr]">
       {/* Sidebar */}
-      <aside className="hidden border-r border-ar-border bg-ar-white md:flex md:flex-col">
-        <div className="border-b border-ar-border px-5 py-4">
-          <Link href="/dashboard">
+      <aside className="sticky top-0 hidden h-screen flex-col border-r border-ar-border bg-ar-white md:flex">
+        <div className="px-5 py-5">
+          <Link href="/dashboard" aria-label="AdsRobotic dashboard">
             <Logo size="md" />
           </Link>
         </div>
-        <nav className="flex-1 space-y-1 p-3">
-          {NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="block rounded px-3 py-2 text-sm font-medium text-ar-text hover:bg-ar-blue-light hover:text-ar-blue"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <SidebarNav />
         <div className="border-t border-ar-border p-3">
-          <div className="rounded-lg bg-ar-background p-3">
-            <p className="truncate text-sm font-medium text-ar-text">{business.name}</p>
-            <p className="mt-0.5 text-xs text-ar-muted">
-              {BRAIN_STAGE_LABEL[business.brainStage] ?? business.brainStage}
-            </p>
-            <div className="mt-2">
+          <div className="rounded-xl border border-ar-border/70 bg-ar-background p-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-ar-blue text-sm font-semibold text-ar-white">
+                {initial}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ar-text">{business.name}</p>
+                <p className="truncate text-xs text-ar-muted">
+                  {BRAIN_STAGE_LABEL[business.brainStage] ?? business.brainStage}
+                </p>
+              </div>
+            </div>
+            <div className="mt-2.5 flex items-center justify-between">
               <AutonomyBadge level={level} />
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="rounded-md px-2 py-1 text-xs font-medium text-ar-muted transition-colors hover:bg-ar-blue-light hover:text-ar-blue"
+                >
+                  Log out
+                </button>
+              </form>
             </div>
           </div>
-          <form action={logoutAction} className="mt-3">
-            <button
-              type="submit"
-              className="w-full rounded px-3 py-2 text-left text-sm text-ar-muted hover:bg-ar-blue-light hover:text-ar-blue"
-            >
-              Log out
-            </button>
-          </form>
         </div>
       </aside>
 
       {/* Main */}
       <div className="flex min-w-0 flex-col">
-        <header className="flex items-center gap-3 border-b border-ar-border bg-ar-white px-4 py-3 md:px-6">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-ar-border bg-ar-white/85 px-4 backdrop-blur md:px-8">
           <div className="md:hidden">
             <Logo size="sm" />
           </div>
-          <Badge tone="ai" className="ml-auto">
+          <span className="ml-auto inline-flex items-center gap-2 rounded-full border border-ar-cyan/25 bg-ar-cyan-light px-3 py-1 text-xs font-medium text-ar-cyan-dark">
             <span className="h-1.5 w-1.5 rounded-full bg-ar-cyan animate-ar-pulse" aria-hidden />
             Employee active
-          </Badge>
+          </span>
         </header>
-        <div className="min-w-0 flex-1 p-4 md:p-6">{children}</div>
-
-        {/* Mobile nav */}
-        <nav className="sticky bottom-0 grid grid-cols-5 border-t border-ar-border bg-ar-white md:hidden">
-          {MOBILE_NAV.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="py-3 text-center text-xs font-medium text-ar-muted"
-            >
-              {item.label}
-            </Link>
-          ))}
-        </nav>
+        <div className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8">{children}</div>
+        <MobileNav />
       </div>
     </div>
   );

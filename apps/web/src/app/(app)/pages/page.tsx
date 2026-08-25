@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Badge, Button, Card, CardBody } from '@adsrobotic/ui';
+import { LayoutTemplate, Plus, ExternalLink } from 'lucide-react';
+import { Badge, Button, Card, CardBody, EmptyState, PageHeader } from '@adsrobotic/ui';
 import { listLandingPages } from '@adsrobotic/core';
 import { createPageAction } from '@/app/actions/pages';
 import { getCurrentUser } from '@/lib/current-user';
@@ -14,40 +15,53 @@ export default async function PagesPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Smart Pages</h1>
-          <p className="mt-1 text-ar-muted">Mobile-first conversion pages — no website needed.</p>
-        </div>
-        <form action={createPageAction}>
-          <Button type="submit" variant="growth">
-            New page
-          </Button>
-        </form>
-      </div>
+      <PageHeader
+        title="Smart Pages"
+        description="Mobile-first conversion pages — no website needed."
+        actions={
+          <form action={createPageAction}>
+            <Button type="submit" variant="growth">
+              <Plus className="h-4 w-4" /> New page
+            </Button>
+          </form>
+        }
+      />
 
       {pages.length === 0 ? (
-        <Card>
-          <CardBody className="py-12 text-center text-ar-muted">
-            No pages yet. Create one, or a Smart Page is made automatically when you choose it as a
-            campaign destination.
-          </CardBody>
-        </Card>
+        <EmptyState
+          icon={<LayoutTemplate className="h-6 w-6" />}
+          title="No Smart Pages yet"
+          description="Create one, or a Smart Page is generated automatically when you pick it as a campaign destination."
+        />
       ) : (
         <div className="space-y-3">
           {pages.map((p) => (
-            <Card key={p.id}>
+            <Card key={p.id} elevation="flat" className="border-ar-border">
               <CardBody className="flex items-center gap-4">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-ar-blue-light text-ar-blue">
+                  <LayoutTemplate className="h-[18px] w-[18px]" />
+                </span>
                 <div className="min-w-0">
                   <p className="truncate font-medium text-ar-text">{p.title}</p>
                   <p className="text-xs text-ar-muted">
                     /p/{p.slug} · {p.views} view{p.views === 1 ? '' : 's'}
                   </p>
                 </div>
-                <div className="ml-auto flex items-center gap-3">
+                <div className="ml-auto flex items-center gap-2">
                   <Badge tone={p.published ? 'success' : 'neutral'}>
                     {p.published ? 'published' : 'draft'}
                   </Badge>
+                  {p.published ? (
+                    <a
+                      href={`/p/${p.slug}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-md p-2 text-ar-muted transition-colors hover:bg-ar-blue-light hover:text-ar-blue"
+                      aria-label="View live"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  ) : null}
                   <Button asChild variant="secondary" size="sm">
                     <Link href={`/pages/${p.id}`}>Edit</Link>
                   </Button>

@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { PageHeader } from '@adsrobotic/ui';
 import { availableChannels } from '@adsrobotic/core';
 import { CampaignWizard } from '@/components/campaign-wizard';
 import { createCampaignAction } from '@/app/actions/business';
@@ -16,12 +17,11 @@ export default async function NewCampaignPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Create a campaign</h1>
-        <p className="mt-1 text-ar-muted">
-          Answer a few questions — AdsRobotic builds the strategy, creatives, and safety rules.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="AI Campaign Strategist"
+        title="Create a campaign"
+        description="Answer a few questions — AdsRobotic builds the strategy, creatives, and safety rules."
+      />
       <CampaignWizard action={createCampaignAction} currency={currency} channels={channels} />
     </div>
   );

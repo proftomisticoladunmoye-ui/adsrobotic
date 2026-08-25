@@ -42,6 +42,15 @@ const preset: Omit<Config, 'content'> = {
         DEFAULT: radii.md,
         lg: radii.lg,
         xl: radii.xl,
+        '2xl': '1.25rem',
+      },
+      // Soft, blue-tinted elevation — premium and restrained (Spec §8).
+      boxShadow: {
+        xs: '0 1px 2px 0 rgba(16, 42, 67, 0.05)',
+        card: '0 1px 2px rgba(16, 42, 67, 0.04), 0 6px 16px -8px rgba(16, 42, 67, 0.10)',
+        'card-hover': '0 2px 4px rgba(16, 42, 67, 0.06), 0 12px 28px -10px rgba(16, 42, 67, 0.16)',
+        pop: '0 8px 30px -8px rgba(16, 42, 67, 0.20)',
+        'ai-glow': '0 0 0 1px rgba(0, 194, 217, 0.25), 0 6px 20px -6px rgba(0, 194, 217, 0.30)',
       },
       keyframes: {
         // Subtle "AI working" pulse for live status indicators (Spec §12).

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Badge, Card, CardBody, CardHeader, CardTitle } from '@adsrobotic/ui';
+import { Badge, Card, CardBody, CardHeader, CardTitle, PageHeader } from '@adsrobotic/ui';
 import { listCreativeSets, listCreativeAssets } from '@adsrobotic/core';
 import { CreativeStudio } from '@/components/creative-studio';
 import { getCurrentUser } from '@/lib/current-user';
@@ -23,13 +23,11 @@ export default async function CreativePage() {
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">Creative Studio</h1>
-        <p className="mt-1 text-ar-muted">
-          Generate testable ad variations across four angles — grounded in your business, never
-          fabricated.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="AI Creative Factory"
+        title="Creative Studio"
+        description="Generate testable ad variations across four angles — grounded in your business, never fabricated."
+      />
 
       <CreativeStudio />
 

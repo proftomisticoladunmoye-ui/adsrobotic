@@ -8,3 +8,6 @@ export { Logo, type LogoProps } from './components/logo';
 export { NetworkSignature } from './components/network-signature';
 export { AIStatus } from './components/ai-status';
 export { AutonomyBadge } from './components/autonomy-badge';
+export { PageHeader } from './components/page-header';
+export { EmptyState } from './components/empty-state';
+export { Sparkline } from './components/sparkline';

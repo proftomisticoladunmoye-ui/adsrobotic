@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { Alert, Badge, Button, Card, CardBody } from '@adsrobotic/ui';
+import { Lightbulb } from 'lucide-react';
+import { Badge, Button, Card, CardBody, EmptyState, PageHeader } from '@adsrobotic/ui';
 import { listRecommendations } from '@adsrobotic/core';
 import { getCurrentUser } from '@/lib/current-user';
 import {
@@ -31,18 +32,19 @@ export default async function RecommendationsPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ar-blue">AI Recommendations</h1>
-        <p className="mt-1 text-ar-muted">
-          Actions AdsRobotic proposes — with the reasoning behind each. You decide.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Why did the AI do this?"
+        title="AI Recommendations"
+        description="Actions AdsRobotic proposes — with the reasoning behind each. You decide."
+      />
 
       {pending.length === 0 ? (
-        <Alert tone="ai" title="Nothing needs your decision">
-          When AdsRobotic spots something worth acting on that&apos;s above its current authority, it
-          appears here for you to approve.
-        </Alert>
+        <EmptyState
+          tone="ai"
+          icon={<Lightbulb className="h-6 w-6" />}
+          title="Nothing needs your decision"
+          description="When AdsRobotic spots something worth acting on that's above its current authority, it appears here for you to approve."
+        />
       ) : (
         <div className="space-y-3">
           {pending.map((r) => (
