@@ -16,6 +16,7 @@
     "@adsrobotic/channel-core": "workspace:*",
     "@adsrobotic/channel-google": "workspace:*",
     "@adsrobotic/channel-meta": "workspace:*",
+    "@adsrobotic/channel-tiktok": "workspace:*",
     "@adsrobotic/config": "workspace:*",
     "@adsrobotic/db": "workspace:*",
     "@adsrobotic/image": "workspace:*",

@@ -1,6 +1,7 @@
 import { registerChannel, getChannel, MockChannel } from '@adsrobotic/channel-core';
 import { MetaChannel } from '@adsrobotic/channel-meta';
 import { GoogleChannel } from '@adsrobotic/channel-google';
+import { TikTokChannel } from '@adsrobotic/channel-tiktok';
 import { loadServerEnv } from '@adsrobotic/config';
 
 /**
@@ -27,6 +28,7 @@ export function ensureAdaptersRegistered(): void {
         : {}),
     }),
   );
+  registerChannel(new TikTokChannel({ version: env.TIKTOK_API_VERSION }));
   done = true;
 }
 

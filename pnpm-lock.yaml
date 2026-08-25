@@ -187,6 +187,22 @@ importers:
         specifier: ^2.1.5
         version: 2.1.9(@types/node@22.20.1)
 
+  packages/channels/tiktok:
+    dependencies:
+      '@adsrobotic/channel-core':
+        specifier: workspace:*
+        version: link:../core
+    devDependencies:
+      '@types/node':
+        specifier: ^22.9.0
+        version: 22.20.1
+      typescript:
+        specifier: ^5.6.3
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.5
+        version: 2.1.9(@types/node@22.20.1)
+
   packages/config:
     dependencies:
       zod:
@@ -220,6 +236,9 @@ importers:
       '@adsrobotic/channel-meta':
         specifier: workspace:*
         version: link:../channels/meta
+      '@adsrobotic/channel-tiktok':
+        specifier: workspace:*
+        version: link:../channels/tiktok
       '@adsrobotic/config':
         specifier: workspace:*
         version: link:../config

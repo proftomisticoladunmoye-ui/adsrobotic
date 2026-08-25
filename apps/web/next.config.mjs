@@ -13,6 +13,7 @@ const nextConfig = {
     '@adsrobotic/channel-core',
     '@adsrobotic/channel-meta',
     '@adsrobotic/channel-google',
+    '@adsrobotic/channel-tiktok',
   ],
   // Native / server-only modules must not be bundled by webpack.
   serverExternalPackages: ['@node-rs/argon2', '@prisma/client'],

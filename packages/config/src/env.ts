@@ -55,6 +55,11 @@ const serverEnvSchema = z.object({
   META_ADS_APP_SECRET: z.string().optional(),
   META_GRAPH_VERSION: z.string().default('v21.0'),
 
+  // TikTok Business (Marketing) API
+  TIKTOK_APP_ID: z.string().optional(),
+  TIKTOK_APP_SECRET: z.string().optional(),
+  TIKTOK_API_VERSION: z.string().default('v1.3'),
+
   // WhatsApp Business lead destination (Spec §5)
   WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   WHATSAPP_ACCESS_TOKEN: z.string().optional(),

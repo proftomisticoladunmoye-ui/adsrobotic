@@ -355,10 +355,44 @@ async function main() {
   const gLaunched = await prisma.campaign.findUnique({ where: { id: gCampaign.id } });
   check('launched google campaign is active', gLaunched?.status === 'active');
 
+  // Third live channel (TikTok) — access-token credential shape + launch.
+  const fakeTikTok = new channelCore.MockChannel();
+  (fakeTikTok as unknown as { id: string }).id = 'tiktok';
+  channelCore.registerChannel(fakeTikTok as unknown as Parameters<typeof channelCore.registerChannel>[0]);
+  await prisma.channelConnection.create({
+    data: {
+      businessId: reg.businessId,
+      channel: 'tiktok',
+      status: 'connected',
+      externalAccountId: 'adv_555',
+      encryptedCredentials: core.encryptSecret('tiktok-token'),
+      scopes: ['ads_management'],
+    },
+  });
+  const ttCreds = await core.resolveChannelCredentials(reg.businessId, 'tiktok');
+  check('tiktok credentials resolve as an access token', ttCreds?.accessToken === 'tiktok-token');
+  const ttCampaign = await prisma.campaign.create({
+    data: {
+      businessId: reg.businessId,
+      name: 'For You — Traffic',
+      objective: 'website_traffic',
+      status: 'scheduled',
+      conversionDestination: 'website',
+      destinationValue: 'https://example.com',
+      channel: 'tiktok',
+      budgetTotal: 90,
+      currency: 'USD',
+      autonomyLevel: 'manager',
+      approvedAt: new Date(),
+    },
+  });
+  const ttLaunch = await core.launchCampaign(reg.businessId, ttCampaign.id, reg.user.id);
+  check('tiktok campaign launches and verifies', ttLaunch.launched && Boolean(ttLaunch.externalId));
+
   const channelCount = await prisma.channelConnection.count({
     where: { businessId: reg.businessId, status: 'connected' },
   });
-  check('business has two connected channels', channelCount === 2, `count=${channelCount}`);
+  check('business has three connected channels', channelCount === 3, `count=${channelCount}`);
 
   // 11. Creative Studio — grounded 4-angle generation, save, and list (Spec §3).
   const gen = await core.generateCreativeSet(reg.businessId, { objective: 'whatsapp_messages' });

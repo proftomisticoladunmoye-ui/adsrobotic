@@ -5,6 +5,10 @@ import {
   buildAuthUrl as buildGoogleAuthUrl,
   exchangeCodeForToken as exchangeGoogleCode,
 } from '@adsrobotic/channel-google';
+import {
+  buildAuthUrl as buildTikTokAuthUrl,
+  exchangeCodeForToken as exchangeTikTokCode,
+} from '@adsrobotic/channel-tiktok';
 import { loadServerEnv } from '@adsrobotic/config';
 import { AppError, validationError } from './errors';
 import { encryptSecret, decryptSecret } from './crypto';
@@ -25,7 +29,13 @@ export function isGoogleConfigured(): boolean {
   );
 }
 
-function redirectUri(channel: 'meta' | 'google'): string {
+/** Whether the operator has configured TikTok credentials. */
+export function isTikTokConfigured(): boolean {
+  const env = loadServerEnv();
+  return Boolean(env.TIKTOK_APP_ID && env.TIKTOK_APP_SECRET);
+}
+
+function redirectUri(channel: 'meta' | 'google' | 'tiktok'): string {
   const env = loadServerEnv();
   return `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, '')}/api/v1/channels/${channel}/callback`;
 }
@@ -201,6 +211,74 @@ export async function connectGoogleFromCode(
   return { externalAccountId: connect.externalAccountId };
 }
 
+/** Build the TikTok OAuth URL (Spec §21 consent). */
+export function getTikTokAuthUrl(state: string): string {
+  const env = loadServerEnv();
+  if (!env.TIKTOK_APP_ID) throw new AppError('TikTok is not configured', 400, 'not_configured');
+  return buildTikTokAuthUrl({
+    appId: env.TIKTOK_APP_ID,
+    redirectUri: redirectUri('tiktok'),
+    state,
+  });
+}
+
+/**
+ * Complete the TikTok OAuth handshake: exchange the auth code for an access
+ * token + advertiser ids, then persist an encrypted connection (Spec §21).
+ */
+export async function connectTikTokFromCode(
+  businessId: string,
+  code: string,
+  connectedById?: string,
+): Promise<{ externalAccountId: string }> {
+  ensureAdaptersRegistered();
+  const env = loadServerEnv();
+  if (!env.TIKTOK_APP_ID || !env.TIKTOK_APP_SECRET) {
+    throw new AppError('TikTok is not configured', 400, 'not_configured');
+  }
+
+  const tokenRes = await exchangeTikTokCode(
+    { version: env.TIKTOK_API_VERSION },
+    { appId: env.TIKTOK_APP_ID, secret: env.TIKTOK_APP_SECRET, authCode: code },
+  );
+  if (!tokenRes.ok) throw new AppError(`TikTok token exchange failed: ${tokenRes.error}`, 400, 'oauth_error');
+
+  const accessToken = tokenRes.data.access_token;
+  const advertiserId = tokenRes.data.advertiser_ids?.[0];
+  if (!advertiserId) throw new AppError('No TikTok advertiser account available', 400, 'oauth_error');
+
+  await prisma.channelConnection.upsert({
+    where: { businessId_channel: { businessId, channel: 'tiktok' } },
+    update: {
+      status: 'connected',
+      externalAccountId: advertiserId,
+      encryptedCredentials: encryptSecret(accessToken),
+      scopes: tokenRes.data.scope ?? [],
+      connectedById: connectedById ?? null,
+      lastSyncedAt: new Date(),
+    },
+    create: {
+      businessId,
+      channel: 'tiktok',
+      status: 'connected',
+      externalAccountId: advertiserId,
+      encryptedCredentials: encryptSecret(accessToken),
+      scopes: tokenRes.data.scope ?? [],
+      connectedById: connectedById ?? null,
+    },
+  });
+
+  await audit({
+    businessId,
+    userId: connectedById,
+    action: 'channel.connected',
+    entityType: 'ChannelConnection',
+    metadata: { channel: 'tiktok', externalAccountId: advertiserId },
+  });
+
+  return { externalAccountId: advertiserId };
+}
+
 export async function listConnections(businessId: string) {
   return prisma.channelConnection.findMany({
     where: { businessId },
@@ -249,6 +327,7 @@ export function availableChannels(): Array<{ channel: ChannelType; label: string
   return [
     { channel: 'meta', label: 'Meta (Facebook & Instagram)', configured: isMetaConfigured() },
     { channel: 'google', label: 'Google Ads', configured: isGoogleConfigured() },
+    { channel: 'tiktok', label: 'TikTok Ads', configured: isTikTokConfigured() },
   ];
 }
 
